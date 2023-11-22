@@ -96,6 +96,37 @@ def pokemon_data_fetcher(requested_pokemon: str):
 
     return sprite_url, dex_entry, learn_set, types, species_name
 
+@st.cache_data(experimental_allow_widgets=True)
+def item_data_fetcher(item_sel: str):
+    """take item from option and fetch it. then parse out and return data"""
+    # start zmq service
+    item_srvc = subprocess.Popen(['python3', './zmqServices/item_service.py'])
+
+    # connect to zmq item data service
+    context = zmq.Context()
+    socket4 = context.socket(zmq.REQ)
+    socket4.connect("tcp://127.0.0.1:5558")
+
+    # request and parse
+    socket4.send_pyobj(item_sel)
+    item_received = socket4.recv_pyobj()
+    # item desc
+    try:
+        item_desc = item_received['effect_entries'][0]['effect']
+    except Exception:
+        item_desc = 'Couldn\'t find description on PokeAPI.'
+    # item sprite url
+    try:
+        item_sprite = item_received['sprites']['default']
+        if item_sprite is None:
+            item_sprite = 'https://pokeapi.co/media/sprites/items/master-ball.png'
+    except Exception:
+        item_sprite = 'https://pokeapi.co/media/sprites/items/master-ball.png'
+
+    subprocess.Popen.terminate(item_srvc)
+
+    return item_desc, item_sprite
+
 
 def add_p_row(state_key):
     element_id = uuid.uuid4()
@@ -132,6 +163,26 @@ def generate_p_row(full_pkmn_list, row_id: str):
         # st.markdown(f'[Smogon Link](https://www.smogon.com/dex/{str.lower(ver_selection)}/pokemon/{[poke_data[4]]})')
     return {"PokeCol1": poke_col1, "PokeCol2": poke_col2}, poke_data
 
+
+def add_i_row(state_key):
+    element_id = uuid.uuid4()
+    st.session_state[f'{state_key}'].append(str(element_id))
+
+
+def generate_i_row(full_item_list, row_id: str):
+    # Select Items
+    item_selection = st.selectbox("Select a held item", full_item_list, key=f'item_{row_id}')
+    i_desc, i_sprite_url = item_data_fetcher(item_selection)
+    with st.expander("Item Information"):
+        i_col1, i_col2 = st.columns([0.5, 2])
+        with i_col1:
+            st.text("Sprite:")
+            st.image(i_sprite_url)
+        with i_col2:
+            st.write(i_desc)
+    return {"ItemCol1": i_col1, "ItemCol2": i_col2}
+
+
 # ~~~~~~~~~ Layout stuff ~~~~~~~~~~
 
 
@@ -149,6 +200,12 @@ if 'pkmn' not in st.session_state:
 
 pkmn_collection = []
 
+# init item state session
+if 'item' not in st.session_state:
+    st.session_state['item'] = []
+
+item_collection = []
+
 
 def tabbed(selection):
     if selection == 'Tabbed':
@@ -162,36 +219,66 @@ def tabbed(selection):
             add_p_row(state_key_pkmn)
             pokerow_data, poke_data = generate_p_row(pkmn_list, st.session_state['pkmn'][0])
             pkmn_collection.append(pokerow_data)
+            # Item
+            state_key_item = 'item'
+            add_i_row(state_key_item)
+            itemrow_data = generate_i_row(item_list, st.session_state['item'][0])
+            item_collection.append(itemrow_data)
         with tabs[1]:
             st.header("Teamslot 2")
             # Select Pokemon
             add_p_row(state_key_pkmn)
             pokerow_data, poke_data = generate_p_row(pkmn_list, st.session_state['pkmn'][1])
             pkmn_collection.append(pokerow_data)
+            # Select Item
+            state_key_item = 'item'
+            add_i_row(state_key_item)
+            itemrow_data = generate_i_row(item_list, st.session_state['item'][1])
+            item_collection.append(itemrow_data)
         with tabs[2]:
             st.header("Teamslot 3")
             # Select Pokemon
             add_p_row(state_key_pkmn)
             pokerow_data, poke_data = generate_p_row(pkmn_list, st.session_state['pkmn'][2])
             pkmn_collection.append(pokerow_data)
+            # Select Item
+            state_key_item = 'item'
+            add_i_row(state_key_item)
+            itemrow_data = generate_i_row(item_list, st.session_state['item'][2])
+            item_collection.append(itemrow_data)
         with tabs[3]:
             st.header("Teamslot 4")
             # Select Pokemon
             add_p_row(state_key_pkmn)
             pokerow_data, poke_data = generate_p_row(pkmn_list, st.session_state['pkmn'][3])
             pkmn_collection.append(pokerow_data)
+            # Select Item
+            state_key_item = 'item'
+            add_i_row(state_key_item)
+            itemrow_data = generate_i_row(item_list, st.session_state['item'][3])
+            item_collection.append(itemrow_data)
         with tabs[4]:
             st.header("Teamslot 5")
             # Select Pokemon
             add_p_row(state_key_pkmn)
             pokerow_data, poke_data = generate_p_row(pkmn_list, st.session_state['pkmn'][4])
             pkmn_collection.append(pokerow_data)
+            # Select Item
+            state_key_item = 'item'
+            add_i_row(state_key_item)
+            itemrow_data = generate_i_row(item_list, st.session_state['item'][4])
+            item_collection.append(itemrow_data)
         with tabs[5]:
             st.header("Teamslot 6")
             # Select Pokemon
             add_p_row(state_key_pkmn)
             pokerow_data, poke_data = generate_p_row(pkmn_list, st.session_state['pkmn'][5])
             pkmn_collection.append(pokerow_data)
+            # Select Item
+            state_key_item = 'item'
+            add_i_row(state_key_item)
+            itemrow_data = generate_i_row(item_list, st.session_state['item'][5])
+            item_collection.append(itemrow_data)
     else:
         return
 
@@ -207,18 +294,33 @@ def single_page(selection):
                 add_p_row(state_key_pkmn)
                 pokerow_data, poke_data = generate_p_row(pkmn_list, st.session_state['pkmn'][0])
                 pkmn_collection.append(pokerow_data)
+                # Select Item
+                state_key_item = 'item'
+                add_i_row(state_key_item)
+                itemrow_data = generate_i_row(item_list, st.session_state['item'][0])
+                item_collection.append(itemrow_data)
             with teamslot2:
                 st.header("Teamslot 2")
                 # Select Pokemon
                 add_p_row(state_key_pkmn)
                 pokerow_data, poke_data = generate_p_row(pkmn_list, st.session_state['pkmn'][1])
                 pkmn_collection.append(pokerow_data)
+                # Select Item
+                state_key_item = 'item'
+                add_i_row(state_key_item)
+                itemrow_data = generate_i_row(item_list, st.session_state['item'][1])
+                item_collection.append(itemrow_data)
             with teamslot3:
                 st.header("Teamslot 3")
                 # Select Pokemon
                 add_p_row(state_key_pkmn)
                 pokerow_data, poke_data = generate_p_row(pkmn_list, st.session_state['pkmn'][2])
                 pkmn_collection.append(pokerow_data)
+                # Select Item
+                state_key_item = 'item'
+                add_i_row(state_key_item)
+                itemrow_data = generate_i_row(item_list, st.session_state['item'][2])
+                item_collection.append(itemrow_data)
 
         teamslot4, teamslot5, teamslot6 = st.columns(3)
 
@@ -229,18 +331,33 @@ def single_page(selection):
                 add_p_row(state_key_pkmn)
                 pokerow_data, poke_data = generate_p_row(pkmn_list, st.session_state['pkmn'][3])
                 pkmn_collection.append(pokerow_data)
+                # Select Item
+                state_key_item = 'item'
+                add_i_row(state_key_item)
+                itemrow_data = generate_i_row(item_list, st.session_state['item'][3])
+                item_collection.append(itemrow_data)
             with teamslot5:
                 st.header("Teamslot 5")
                 # Select Pokemon
                 add_p_row(state_key_pkmn)
                 pokerow_data, poke_data = generate_p_row(pkmn_list, st.session_state['pkmn'][4])
                 pkmn_collection.append(pokerow_data)
+                # Select Item
+                state_key_item = 'item'
+                add_i_row(state_key_item)
+                itemrow_data = generate_i_row(item_list, st.session_state['item'][4])
+                item_collection.append(itemrow_data)
             with teamslot6:
                 st.header("Teamslot 6")
                 # Select Pokemon
                 add_p_row(state_key_pkmn)
                 pokerow_data, poke_data = generate_p_row(pkmn_list, st.session_state['pkmn'][5])
                 pkmn_collection.append(pokerow_data)
+                # Select Item
+                state_key_item = 'item'
+                add_i_row(state_key_item)
+                itemrow_data = generate_i_row(item_list, st.session_state['item'][5])
+                item_collection.append(itemrow_data)
     else:
         return
 
